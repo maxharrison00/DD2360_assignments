@@ -1,48 +1,84 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstdio>
+#define N 64
 
 #define CHECK(call) do {                                 \
-    cudaError_t err = (call);                            \
-    if (err != cudaSuccess) {                            \
-        std::fprintf(stderr, "CUDA error: %s (%s:%d)\n", \
-                     cudaGetErrorString(err), __FILE__, __LINE__); \
-        std::exit(1);                                    \
-    }                                                    \
+  cudaError_t err = (call);                            \
+  if (err != cudaSuccess) {                            \
+    std::fprintf(stderr, "CUDA error: %s (%s:%d)\n", \
+                 cudaGetErrorString(err), __FILE__, __LINE__); \
+    std::exit(1);                                    \
+  }                                                    \
 } while (0)
 
-/* Our over-simplified CUDA kernel */
-__global__ void add(int *a, int *b, int *c) {
-     c[0] = a[0] + b[0];
+// Threads per Block
+const int TBP = 32;
+
+void vecAdd(float *a, float *b, float *c) {
+  for (int i = 0; i < N; i++) {
+    c[i] = a[i] + b[i];
+  }
+}
+
+__global__ void add(float *a, float *b, float *c) {
+  const int i = blockIdx.x*blockDim.x + threadIdx.x;
+  c[i] = a[i] + b[i];
 }
 
 int main() {
+  //@@ 1. Allocate in host memory
+  int size = N * sizeof(float);
+  float* h_a = (float *) malloc(N * size);
+  float* h_b = (float *) malloc(N * size);
+  float* h_c = (float *) malloc(N * size);
+  float* result = (float *) malloc(N * size);
 
-    int a=11, b=22, c=0; //@@ 3. Initialize host memory
+  //@@ 2. Allocate in device memory
+  float *d_a, *d_b, *d_c;  
+  cudaMalloc((void **)&d_a, size); 
+  cudaMalloc((void **)&d_b, size);
+  cudaMalloc((void **)&d_c, size);
 
-    int *d_a, *d_b, *d_c; //@@ 1. Allocate in host memory
-    int size = sizeof(int);
-    cudaMalloc((void **)&d_a, size); //@@ 2. Allocate in device memory
-    cudaMalloc((void **)&d_b, size);
-    cudaMalloc((void **)&d_c, size);
+  //@@ 3. Initialize host memory
+  for (int i = 0; i < N; i++) {
+    // use anything here to initialise values to the vectors
+    h_a[i] = ((float) i) / (N-1);
+    h_b[i] = ((float) i) / (N-1);
+  }
 
-    cudaMemcpy(d_a, &a, size, cudaMemcpyHostToDevice); //@@ 4. Copy from host memory to device memory
-    cudaMemcpy(d_b, &b, size, cudaMemcpyHostToDevice);
+  //@@ 4. Copy from host memory to device memory
+  cudaMemcpy(d_a, h_a, size, cudaMemcpyHostToDevice); 
+  cudaMemcpy(d_b, h_b, size, cudaMemcpyHostToDevice);
 
-    printf("result before GPU computation is %d\n",c);
+  //@@ 5. Initialize thread block and thread grid
+  int blocks_per_grid = (N + TBP - 1) / TBP; // ceiling division
+  int thread_block = TBP;
 
-    dim3 grid(1,1,1); //@@ 5. Initialize thread block and thread grid
-    dim3 tpb(32,1,1);
-    add<<<grid,tpb>>>(d_a, d_b, d_c); //@@ 6. Invoke the CUDA kernel
-    CHECK(cudaGetLastError());
-    CHECK(cudaDeviceSynchronize());
+  //@@ 6. Invoke the CUDA kernel
+  add<<<blocks_per_grid, thread_block>>>(d_a, d_b, d_c);
 
-    cudaMemcpy(&c, d_c, size, cudaMemcpyDeviceToHost); //@@ 7. Copy results from GPU to CPU
-    printf("result after GPU computation is %d\n",c); //@@ 8. Compare the results with the CPU reference result
+  //@@ 7. Copy results from GPU to CPU
+  cudaMemcpy(result, d_c, size, cudaMemcpyDeviceToHost);
 
-    // Cleanup
-    cudaFree(d_a); //@@ 10. Free device memory
-    cudaFree(d_b);
-    cudaFree(d_c);
-    return 0; //@@ 9. Free host memory
+  //@@ 8. Compare the results with the CPU reference result
+  vecAdd(h_a, h_b, h_c);
+  float error = 0;
+  for (int i = 0; i < N; i++) {
+    error += h_c[i]-result[i];
+  }
+  printf("Total error between CPU and GPU versions is %f\n", error); 
+
+  //@@ 9. Free host  memory
+  free(h_a);
+  free(h_b);
+  free(h_c);
+  free(result);
+
+  //@@ 10. Free device memory 
+  cudaFree(d_a); 
+  cudaFree(d_b);
+  cudaFree(d_c);
+
+  return 0;
 }
