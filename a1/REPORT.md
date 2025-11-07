@@ -68,7 +68,7 @@ The threads per block is set to 32 for all inputs, so for $N = 512$ there are $N
 
 ## 4)
 
-For N=512, profile your program with Nvidia Nsight. What Achieved Occupancy did you get? You might find https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#nvprof-metric-comparison
+For $N=512$, there was an achieved occupancy of 3.21%.
 
 ## 5)
 
@@ -80,7 +80,7 @@ For $N = 263,149$, there are $N/32 = 8,224$ thread blocks (as we round up to the
 
 ## 7)
 
-For N=263149, profile your program again with Nvidia Nsight. What Achieved Occupancy do you get now?
+For $N=263,149$, there was an achieved occupancy of 35.02%.
 
 ## 8)
 

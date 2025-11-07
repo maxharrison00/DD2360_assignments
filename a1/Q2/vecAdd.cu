@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <cstdio>
-#define N 64
 
 #define CHECK(call) do {                                 \
   cudaError_t err = (call);                            \
@@ -15,24 +13,32 @@
 // Threads per Block
 const int TBP = 32;
 
-void vecAdd(float *a, float *b, float *c) {
-  for (int i = 0; i < N; i++) {
+void vecAdd(float *a, float *b, float *c, int len) {
+  for (int i = 0; i < len; i++) {
     c[i] = a[i] + b[i];
   }
 }
 
-__global__ void add(float *a, float *b, float *c) {
+__global__ void add(float *a, float *b, float *c, int len) {
   const int i = blockIdx.x*blockDim.x + threadIdx.x;
-  c[i] = a[i] + b[i];
+  if (i < len) {
+    c[i] = a[i] + b[i];
+  }
 }
 
-int main() {
+int main(int argc, char **argv) {
+  // Read in length of array
+  if (argc < 2 || argc > 3) {
+    return 0;
+  }
+  int len = atoi(argv[1]);
+
   //@@ 1. Allocate in host memory
-  int size = N * sizeof(float);
-  float* h_a = (float *) malloc(N * size);
-  float* h_b = (float *) malloc(N * size);
-  float* h_c = (float *) malloc(N * size);
-  float* result = (float *) malloc(N * size);
+  int size = len * sizeof(float);
+  float* h_a = (float *) malloc(size);
+  float* h_b = (float *) malloc(size);
+  float* h_c = (float *) malloc(size);
+  float* result = (float *) malloc(size);
 
   //@@ 2. Allocate in device memory
   float *d_a, *d_b, *d_c;  
@@ -41,10 +47,10 @@ int main() {
   cudaMalloc((void **)&d_c, size);
 
   //@@ 3. Initialize host memory
-  for (int i = 0; i < N; i++) {
+  for (int i = 0; i < len; i++) {
     // use anything here to initialise values to the vectors
-    h_a[i] = ((float) i) / (N-1);
-    h_b[i] = ((float) i) / (N-1);
+    h_a[i] = ((float) i) / (len-1);
+    h_b[i] = ((float) i) / (len-1);
   }
 
   //@@ 4. Copy from host memory to device memory
@@ -52,11 +58,11 @@ int main() {
   cudaMemcpy(d_b, h_b, size, cudaMemcpyHostToDevice);
 
   //@@ 5. Initialize thread block and thread grid
-  int blocks_per_grid = (N + TBP - 1) / TBP; // ceiling division
+  int blocks_per_grid = (len + TBP - 1) / TBP; // ceiling division
   int thread_block = TBP;
 
   //@@ 6. Invoke the CUDA kernel
-  add<<<blocks_per_grid, thread_block>>>(d_a, d_b, d_c);
+  add<<<blocks_per_grid, thread_block>>>(d_a, d_b, d_c, len);
 
   //@@ 7. Copy results from GPU to CPU
   cudaMemcpy(result, d_c, size, cudaMemcpyDeviceToHost);
@@ -64,7 +70,7 @@ int main() {
   //@@ 8. Compare the results with the CPU reference result
   vecAdd(h_a, h_b, h_c);
   float error = 0;
-  for (int i = 0; i < N; i++) {
+  for (int i = 0; i < len; i++) {
     error += h_c[i]-result[i];
   }
   printf("Total error between CPU and GPU versions is %f\n", error); 
