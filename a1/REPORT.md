@@ -86,6 +86,133 @@ For $N=263,149$, there was an achieved occupancy of 35.02%.
 
 Further increase the vector length (try 10-16 different vector length), plot a stacked bar chart showing the breakdown of time including (1) data copy from host to device (2) the CUDA kernel (3) data copy from device to host. For this, you will need to add simple CPU timers to your code regions (see tutorial).
 
-# 3 - 2D Dense Matrix Multiplication
+
+# Question 3 - 2D Dense Matrix Multiplication
+
+## 1) Number of floating-point operations
+
+For each element `C[i][j]` in the resulting matrix, the kernel computes the dot product between the `i`-th row of matrix `A` and the `j`-th column of matrix `B`.  
+Each dot product involves `numAColumns` multiplications and `numAColumns - 1` additions.  
+Thus, the total number of floating-point operations (FLOPs) is:
+
+FLOPs = numARows × numBColumns × (2 × numAColumns - 1)
+
+Since each output element requires one multiply-add operation per element of the row/column pair, the complexity is O(M×N×K), where M, N, and K correspond to numARows, numBColumns, and numAColumns respectively.
+
+---
+
+## 2) Number of global memory reads
+
+In a naive matrix multiplication kernel, each thread reads:
+- `numAColumns` elements from one row of `A`
+- `numAColumns` elements from one column of `B`
+
+Therefore, the total number of global memory reads is:
+
+Reads = numARows × numBColumns × (numAColumns + numBRows)
+
+Since numBRows = numAColumns, this simplifies to:
+
+Reads = 2 × numARows × numBColumns × numAColumns
+
+This is because each thread needs to access both the elements of A and B for its assigned output element.
+
+---
+
+## 3) For A(128×256) and B(256×32)
+
+Each element of the resulting matrix C(128×32) is computed by one thread.  
+If each block is configured as 16×16 threads:
+
+- Grid size = (ceil(32/16), ceil(128/16)) = (2, 8)
+- Total thread blocks = 2 × 8 = 16
+- Threads per block = 16 × 16 = 256
+- Total CUDA threads = 16 × 256 = 4,096
+
+**Achieved Occupancy (from Nvidia Nsight): 24.00%**
+
+This relatively low occupancy is due to high register or shared memory usage per block, which prevents full utilization of all warps on each SM.
+
+---
+
+## 4) For A(1024×8191) and B(8191×8197)
+
+### 1)
+The program still works as originally written
+
+
+### 2)
+From launch configuration:
+``` cpp
+dim3 blockSize(16, 16);
+dim3 gridSize((8197 + 15) / 16, (1024 + 15) / 16);
+```
+
+So:
+```
+blockSize.x = 16, blockSize.y = 16 → 256 threads per block
+gridSize.x = 513 (since 8197/16 ≈ 512.31 → 513)
+gridSize.y = 64 (since 1024/16 = 64)
+```
+
+Total number of blocks:
+```
+513 × 64 = 32,832 blocks
+```
+Total number of threads:
+```
+32,832 × 256 = 8,404,992
+```
+
+
+### 3)
+
+Not all threads compute valid output elements — only those within the valid matrix dimensions (N×P).
+Matrix C has dimensions ```1024 × 8197 = 8,392,148``` elements and the total threads launched are 8,404,992.
+So:
+```
+Threads that perform computation = 8,392,148
+Threads that do nothing = 8,404,992 - 8,392,148 = 12,844
+```
+These “extra” 12,844 threads are created because the grid is padded to multiples of 16 to fit the 16×16 block structure.
+
+
+### 4)
+Nvidia Nsight output:
+```
+Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            4
+    Block Limit Shared Mem                block           16
+    Block Limit Warps                     block            4
+    Theoretical Active Warps per SM        warp           32
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        98.67
+    Achieved Active Warps Per SM           warp        31.57
+    ------------------------------- ----------- ------------
+```
+**Achieved Occupancy (from Nvidia Nsight): 98.67%**
+
+---
+
+## 5) Time chart
+
+![Alt text](Q3/double_log.png "immagine")
+Stacked bar chart showing the execution time breakdown for NxN matrix multiplication. The x-axis represents log_2(N) where N is the matrix dimension (side length).
+
+As matrix size increases, kernel execution time dominates, while memory transfer times become relatively smaller in proportion. This indicates that GPU computation scales better than memory transfer bandwidth.
+
+---
+
+## 6) Time chart with float DataType
+
+![Alt text](Q3/float_log.png "immagine")
+
+We generally observe a significant speed-up because `float` operations use less bandwidth (4 bytes vs 8 bytes per element)
+
+
 
 # 4 - Rodinia CUDA Benchmarks and Comparison With CPU
