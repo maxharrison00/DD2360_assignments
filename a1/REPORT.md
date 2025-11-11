@@ -216,3 +216,37 @@ We generally observe a significant speed-up because `float` operations use less 
 
 
 # 4 - Rodinia CUDA Benchmarks and Comparison With CPU
+
+## 1)
+For the CUDA version I had to change the architecture using the flag -arch=sm_75
+
+## 2) 
+
+To ensure a fair comparison, the same input data was used for both the CPU (OpenMP) and GPU (CUDA) versions of each benchmark.
+
+The execution times for the main computation kernels were recorded and are presented below. All times have been standardized to milliseconds (ms) for a direct comparison.
+
+| Benchmark | CPU (OpenMP) Time (ms) | GPU (CUDA) Time (ms) | Speedup (CPU / GPU) |
+| :--- | :--- | :--- | :--- |
+| **`bfs`** | 79.93 | 10.44 | **7.66x** |
+| **`heartwall`** | 91,583.12 | 1,354.13 | **67.63x** |
+| **`lud`** | 6,536.40 | 196.81 | **33.21x** |
+
+**Notes on Data Conversion:**
+* **`bfs` (CPU):** 0.079934 s = 79.93 ms
+* **`heartwall` (CPU):** 91.583115 s = 91,583.12 ms
+
+## 3)
+## 3. Analysis of GPU Speedup
+
+Yes, a significant speedup is observed in all three benchmarks when migrating from a multi-core CPU (OpenMP) to the GPU (CUDA). This is the expected behavior, as GPUs are designed for massive data parallelism, executing thousands of operations simultaneously, whereas a CPU is optimized for sequential task execution on a few powerful cores.
+
+However, the *magnitude* of the speedup varies dramatically, which highlights important concepts in GPU computing.
+
+* **`heartwall` (67.63x) and `lud` (33.21x):** These benchmarks show exceptional speedup.
+    * **`heartwall`** (image/video processing) is an parallel problem. The computation for one part of an image frame is almost completely independent of the other parts. This allows the GPU's thousands of cores to be fully utilized with minimal coordination, leading to the highest speedup.
+    * **`lud`** (matrix decomposition) is also highly parallel problem. It fits the GPU architecture extremely well, resulting in a very strong 33.2x speedup.
+
+* **`bfs` (7.66x):** This speedup is much more modest, despite the GPU still being significantly faster. There are two primary observations for this:
+    1.  **Problem Nature:** The amount of work (nodes to visit) can vary wildly between levels of the search. This irregularity is less efficient for the GPU's execution.
+    2.  **Overhead vs. Computation Ratio:** The CPU version is already very fast (79.93 ms). For a task this short, the fixed cost of **data transfer overhead** (copying the entire graph structure to the GPU's memory and copying the result back) becomes a significant bottleneck. The GPU kernel itself is likely much faster, but this fixed overhead "tax" eats into the total time saved, resulting in a lower *overall* speedup compared to the other benchmarks which run for much longer (dozens of seconds), making their data transfer overhead a smaller percentage of the total execution time.
