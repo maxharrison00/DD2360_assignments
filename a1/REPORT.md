@@ -53,6 +53,8 @@ The power efficiency for the top 10 supercomputers is provided below:
 
 We note that the only system to not use accelerators in the top 10, the "Supercomputer Fugaku", has a much lower power efficiency than the other systems. The "Aurora" system also has a relatively low power efficiency, and is the only one to use Intel accelerators.
 
+\newpage
+
 # Question 2 - Your First CUDA Program and GPU Performance Metrics
 ## 1) 
 
@@ -84,8 +86,13 @@ For $N=263,149$, there was an achieved occupancy of 35.02%.
 
 ## 8)
 
-Further increase the vector length (try 10-16 different vector length), plot a stacked bar chart showing the breakdown of time including (1) data copy from host to device (2) the CUDA kernel (3) data copy from device to host. For this, you will need to add simple CPU timers to your code regions (see tutorial).
+The stacked chart is plotted in Figure 1.
 
+![Q8 - Stacked bar chart of vector length vs. Execution Time](Q2/cuda_timings_stacked.png "Stacked bar chart of vector length vs. Execution Time")
+
+The execution time seems to linearly increase with increased input array length. As the array length increases, the majority of time is spent in copying data - especially from the host to the device. The time spent doing actual kernel execution represents less and less of the overall execution time for larger inputs.
+
+\newpage
 
 # Question 3 - 2D Dense Matrix Multiplication
 
@@ -150,8 +157,8 @@ dim3 gridSize((8197 + 15) / 16, (1024 + 15) / 16);
 
 So:
 ```
-blockSize.x = 16, blockSize.y = 16 → 256 threads per block
-gridSize.x = 513 (since 8197/16 ≈ 512.31 → 513)
+blockSize.x = 16, blockSize.y = 16 /to 256 threads per block
+gridSize.x = 513 (since 8197/16 /approx 512.31 /to 513)
 gridSize.y = 64 (since 1024/16 = 64)
 ```
 
@@ -164,7 +171,6 @@ Total number of threads:
 32,832 × 256 = 8,404,992
 ```
 
-
 ### 3)
 
 Not all threads compute valid output elements — only those within the valid matrix dimensions (N×P).
@@ -175,7 +181,6 @@ Threads that perform computation = 8,392,148
 Threads that do nothing = 8,404,992 - 8,392,148 = 12,844
 ```
 These “extra” 12,844 threads are created because the grid is padded to multiples of 16 to fit the 16×16 block structure.
-
 
 ### 4)
 Nvidia Nsight output:
@@ -200,20 +205,22 @@ Section: Occupancy
 
 ## 5) Time chart
 
-![Alt text](Q3/double_log.png "immagine")
+![Q3.5 - Execution Time vs. Input Matrix Sizes](Q3/double_log.png)
 Stacked bar chart showing the execution time breakdown for NxN matrix multiplication. The x-axis represents log_2(N) where N is the matrix dimension (side length).
 
 As matrix size increases, kernel execution time dominates, while memory transfer times become relatively smaller in proportion. This indicates that GPU computation scales better than memory transfer bandwidth.
 
 ---
 
+\newpage
+
 ## 6) Time chart with float DataType
 
-![Alt text](Q3/float_log.png "immagine")
+![Q3.6: Execution Time vs. Input Matrix Sizes for Floats](Q3/float_log.png "immagine")
 
 We generally observe a significant speed-up because `float` operations use less bandwidth (4 bytes vs 8 bytes per element)
 
-
+\newpage
 
 # 4 - Rodinia CUDA Benchmarks and Comparison With CPU
 
