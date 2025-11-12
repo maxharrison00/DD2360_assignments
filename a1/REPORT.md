@@ -3,6 +3,8 @@
 - Assignment Group 3
 - Giovanni Prete and Max Harrison
 
+Both had equal contributions.
+
 # Question 1 - Reflection on GPU-Accelerated Computing
 ## 1) Architectural differences between GPUs and CPUs
 
