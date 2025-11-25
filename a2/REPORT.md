@@ -86,14 +86,6 @@ Do you observe any speed from using GPU? Why or why not?
 
 Using the largest array size in 6, profile and report Shared Memory Configuration Size and Achieved Occupancy. Describe one optimization that you would like to try.
 
-## Question 3 - Tiled Matrix Multiplication
-
-How many global memory reads are performed by the tiled_gemm() kernel?  Compare it with that of the gemm() version.
-Run with your program with a matrix A of (1024x1024) and B of (1024x1024), select 3 tile sizes for testing. Include the screenshot of your output. Explain the results.
-Run with your program with a matrix A of (513x8192) and B of (8192x1023), select 3 tile sizes for testing. Include the screenshot of your output. Explain the results.
-Profile your program in 2 and 3. Report Achieved Occupancy and Shared Memory usage.
-Run your program with 8-10 different matrix sizes that increases from small size to larger sizes. Plot a bar chart comparing the runtime of the CPU version, the gemm(), and the three tiled gemm() kernels of these problems. Explain your results.
-
 # Question 3 - Tiled Matrix Multiplication
 
 ## 1)
