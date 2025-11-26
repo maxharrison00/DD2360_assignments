@@ -1,14 +1,17 @@
 NVCC = nvcc
 NVCC_FLAGS = -arch=sm_75
 
-TARGETS = vecAdd matrixMultiplication
+TARGETS = histogram reduction matrixMultiplicationShared
 
 all: $(TARGETS)
 
-vecAdd: Q2/vecAdd.cu
+histogram: Q1/histogram.cu
 	$(NVCC) $(NVCC_FLAGS) $< -o $@
 
-matrixMultiplication: Q3/matrixMultiplication.cu
+reduction: Q2/reduction.cu
+	$(NVCC) $(NVCC_FLAGS) $< -o $@
+	
+matrixMultiplicationShared: Q3/matrixMultiplicationShared.cu
 	$(NVCC) $(NVCC_FLAGS) $< -o $@
 
 clean:
