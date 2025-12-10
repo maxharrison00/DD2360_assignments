@@ -25,7 +25,7 @@ For $X=600$ and $Y=899$, the logic for x-axis divergence remains identical to th
 
 ![Q2.1: Execution Time vs. Input Array Sizes and Segment Sizes](Q2/plot1.png "immagine")
 
-The experimental results demonstrate a significant performance gain when using CUDA streams compared to the non-streamed implementation. Across all tested vector lengths, the streamed version consistently outperforms the synchronous version, achieving speedups ranging from approximately **3.5x** for smaller vectors to nearly **6x** for the largest datasets. For instance, at a vector length of 67,108,864 elements, the execution time drops drastically from 327.53 ms in the non-streamed version to just 55.32 ms in the best streamed configuration. 
+The experimental results demonstrate a significant performance gain when using CUDA streams compared to the non-streamed implementation. Across all tested vector lengths, the streamed version consistently outperforms the synchronous version, achieving speedups ranging from approximately **3.5x** for smaller vectors to nearly **6x** for the largest datasets. For instance, at a vector length of 67,108,864 elements, the execution time drops drastically from 327.53 ms in the non-streamed version to just 55.32 ms in the best streamed configuration.
 
 ### 2)
 
@@ -36,3 +36,24 @@ The execution trace was collected using NVIDIA Nsight Systems on the Google Cola
 ### 3)
 
 As illustrated in Figure 1 (referring to the grouped bars for the largest vector), analyzing the impact of the segment size ($S_{seg}$) reveals a trade-off between overlap efficiency and API overhead. The smallest tested segment size (65,536) generally yields slightly higher execution times compared to larger segments (e.g., 66.09 ms vs 55.32 ms for the 67M vector), likely due to the overhead of managing a higher number of kernel launches and memory transactions. The "sweet spot" appears to shift as the total vector length increases: for moderate vector lengths (1M - 4M), the medium segment size (262,144) offers the best performance, while for the largest vector length (67M), the largest segment size (1,048,576) provides the optimal throughput. This suggests that as the total workload increases, larger chunks are preferable to fully saturate the PCIe bus and compute resources without incurring excessive launch overheads.
+
+## Bonus - A Particle Simulation Application
+
+The goal of this task was to create a GPU implementation of the `mover_PC()` function in the provided plasma simulation. The code for this section can be found in the `./Bonus/` directory together with a Google Colab notebook for runnning the simulation.
+
+### 1)
+
+Describe the environment you used, what changes you made to the Makefile, and how you ran the simulation.
+
+### 2)
+
+Describe your design of the GPU implementation of mover_PC() briefly.
+
+### 3)
+
+Compare the output of both CPU and GPU implementation to guarantee that your GPU implementations produce correct answers.
+
+### 4)
+
+Compare the execution time of your GPU implementation with its CPU version.
+
