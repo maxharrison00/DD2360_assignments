@@ -39,21 +39,21 @@ As illustrated in Figure 1 (referring to the grouped bars for the largest vector
 
 ## Bonus - A Particle Simulation Application
 
-The goal of this task was to create a GPU implementation of the `mover_PC()` function in the provided plasma simulation. The code for this section can be found in the `./Bonus/` directory together with a Google Colab notebook for runnning the simulation.
+The goal of this task was to create a GPU implementation of the `mover_PC()` function in the provided plasma simulation. The code for this section can be found in the `./Bonus/` directory together with a Google Colab notebook for running the simulation. The important GPU-relevant code is contained in `./Bonus/iPIC3D-mini/src/Particles.cu` The important GPU-relevant code is contained in `./Bonus/iPIC3D-mini/src/Particles.cu`.
 
 ### 1)
 
-Describe the environment you used, what changes you made to the Makefile, and how you ran the simulation.
+We used a Google Colab notebook to compile the code and run the simulation. The Makefile was modified to have two targets `cpu` & `gpu` that utilise pre-processor definitions in order to compile either the CPU or GPU versions of `mover_PC()`. This allows one to simply run `make [version]` and then execute the compiled binary to run the simulation.
 
 ### 2)
 
-Describe your design of the GPU implementation of mover_PC() briefly.
+The GPU implementation of `mover_PC()` is based of the simple observation that the particle evaluation in the three loops section of `mover_PC()` does not require information flow between the particles, and thus is very easily moved to the GPU. We can simply define an additional GPU kernel for which this computation is done, and pass the objects to the kernel (even though this results in very ugly parameter slush).
+To deal with the GPU memory, we allocate corresponding data structures on the GPU for the original CPU structs and then copy across flattened versions of the structs. This is again an ugly solution but will pass across the required data to the GPU.
 
 ### 3)
 
-Compare the output of both CPU and GPU implementation to guarantee that your GPU implementations produce correct answers.
+There are differences between the CPU and GPU implementations, likely largely due to rounding errors caused by the different architectures.
 
 ### 4)
 
-Compare the execution time of your GPU implementation with its CPU version.
-
+The CPU version takes around 60 seconds to execute, where the GPU version takes around 30. This represents a 2x speedup for a very simple port, which is a large improvement. Further improvements are available as well e.g. by utilising streams to overlap memory transfer times.
