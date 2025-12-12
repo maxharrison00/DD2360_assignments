@@ -52,8 +52,16 @@ To deal with the GPU memory, we allocate corresponding data structures on the GP
 
 ### 3)
 
-There are differences between the CPU and GPU implementations, likely largely due to rounding errors caused by the different architectures.
+![Q3: CPU and GPU visualisation differences](Bonus/cpu_and_gpu_comparison.png "immagine")
+
+The visualisation shows the output from the purely CPU-implemented version on the top, where the bottom part is the output from the GPU-implemented version. There are large differences in the two outputs, likely  largely due to rounding errors caused by the different architectures.
 
 ### 4)
+
+Sample simulation output is shown in the two following figures:
+
+![Q3: Sample CPU output](Bonus/cpu_output.png "immagine")
+
+![Q3: Sample GPU output](Bonus/gpu_output.png "immagine")
 
 The CPU version takes around 60 seconds to execute, where the GPU version takes around 30. This represents a 2x speedup for a very simple port, which is a large improvement. Further improvements are available as well e.g. by utilising streams to overlap memory transfer times.
