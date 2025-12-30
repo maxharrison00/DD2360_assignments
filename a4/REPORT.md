@@ -6,6 +6,118 @@
 Both had equal contributions.
 
 ## Question 1 -  1D Convolution
+### 1) Application Domains
+
+Three primary domains where convolution is fundamentally applied include:
+1.  **Digital Signal Processing (DSP):** Used for 1D signal filtering, such as noise reduction, equalization, and echo cancellation in audio processing.
+2.  **Image Processing & Computer Vision:** Fundamental for operations like edge detection (e.g., Sobel filter), blurring (Gaussian blur), and sharpening images.
+3.  **Deep Learning:** The core operation in Convolutional Neural Networks (CNNs) for feature extraction in tasks like image classification, object detection, and natural language processing.
+
+### 2) Tiled Kernel Design and Tile Size
+
+To design the tiled kernel, we utilize Shared Memory to reduce redundant global memory accesses. The main challenge in convolution is the "halo" effect: computing an output pixel requires input elements that might belong to the neighboring block's territory.
+
+
+Each thread block loads a portion of the input array into shared memory. Since the mask width is 5 (radius 2), we need to load the "internal" pixels corresponding to the block's threads, plus a "halo" of 2 pixels on the left and 2 pixels on the right. We align the output tile size with the block dimension (`blockDim.x`). Threads near the boundaries of the block are responsible for loading the extra halo elements from global memory into the shared memory buffer. After a `__syncthreads()` barrier, all threads can compute the convolution reading solely from the fast shared memory.
+
+The tile size is typically chosen to match the block size or a multiple of the warp size (32) to maximize occupancy. A common choice is 256 or 512 threads. Larger tiles are generally better as they minimize the ratio of "halo" nodes to "internal" nodes (overhead), reducing the relative cost of loading the extra boundary pixels. However, the size is limited by the amount of available shared memory per Streaming Multiprocessor (SM).
+
+### 3) Memory Reads/Writes Analysis
+
+**Basic Implementation:**
+* **Global Reads:** For each output element $i$, the kernel iterates through the mask of size $M=5$. Thus, it performs 5 global reads per output. For an array of size $N$, total reads = $5N$.
+* **Global Writes:** Each thread writes exactly 1 output. Total writes = $1N$.
+
+**Tiled Implementation:**
+* **Global Reads:** Data is loaded into shared memory once per block. For a tile of size $T$ (where $T$ outputs are computed), the block loads $T$ internal elements + 4 halo elements.
+    * Reads per output $\approx (T + 4) / T = 1 + 4/T$.
+    * For large $T$ (e.g., 256), this approaches 1 global read per output. Total reads $\approx N (1 + 4/T)$.
+* **Global Writes:** Same as basic, 1 global write per output. Total writes = $1N$.
+
+**Comparison:** The tiled version reduces global memory read traffic by a factor of approximately 5x.
+
+### 4) Performance Benchmark
+
+The following benchmark runs the program with input sizes $N$ of 1024, 2048, 4096, 8192, and 16384.
+
+```text
+================================================================
+ RUNNING TEST CASE: Input Size N = 1024
+================================================================
+Timing - Allocated host memory. 		Elasped 6 microseconds 
+Timing - Allocated device memory. 		Elasped 215007 microseconds 
+Timing - Finished 1D convolution (CPU Reference). 		Elasped 36 microseconds 
+Timing - Copying data to the GPU.. 		Elasped 272 microseconds 
+Timing - Finished 1D convolution(basic). 		Elasped 146 microseconds 
+Timing - Finished 1D convolution(tiled). 		Elasped 26 microseconds 
+Timing - Copying output P to the CPU. 		Elasped 20 microseconds 
+Validation (GPU vs CPU): Total Error = 0.000000
+TEST PASSED
+
+================================================================
+ RUNNING TEST CASE: Input Size N = 2048
+================================================================
+Timing - Allocated host memory. 		Elasped 7 microseconds 
+Timing - Allocated device memory. 		Elasped 200599 microseconds 
+Timing - Finished 1D convolution (CPU Reference). 		Elasped 69 microseconds 
+Timing - Copying data to the GPU.. 		Elasped 1198 microseconds 
+Timing - Finished 1D convolution(basic). 		Elasped 133 microseconds 
+Timing - Finished 1D convolution(tiled). 		Elasped 30 microseconds 
+Timing - Copying output P to the CPU. 		Elasped 34 microseconds 
+Validation (GPU vs CPU): Total Error = 0.000000
+TEST PASSED
+
+================================================================
+ RUNNING TEST CASE: Input Size N = 4096
+================================================================
+Timing - Allocated host memory. 		Elasped 6 microseconds 
+Timing - Allocated device memory. 		Elasped 203557 microseconds 
+Timing - Skipped CPU Reference for large N. 		Elasped 0 microseconds 
+Timing - Copying data to the GPU.. 		Elasped 275 microseconds 
+Timing - Finished 1D convolution(basic). 		Elasped 142 microseconds 
+Timing - Finished 1D convolution(tiled). 		Elasped 29 microseconds 
+Timing - Copying output P to the CPU. 		Elasped 33 microseconds 
+Validation skipped for large N
+
+================================================================
+ RUNNING TEST CASE: Input Size N = 8192
+================================================================
+Timing - Allocated host memory. 		Elasped 6 microseconds 
+Timing - Allocated device memory. 		Elasped 201763 microseconds 
+Timing - Skipped CPU Reference for large N. 		Elasped 0 microseconds 
+Timing - Copying data to the GPU.. 		Elasped 916 microseconds 
+Timing - Finished 1D convolution(basic). 		Elasped 153 microseconds 
+Timing - Finished 1D convolution(tiled). 		Elasped 29 microseconds 
+Timing - Copying output P to the CPU. 		Elasped 48 microseconds 
+Validation skipped for large N
+
+================================================================
+ RUNNING TEST CASE: Input Size N = 16384
+================================================================
+Timing - Allocated host memory. 		Elasped 9 microseconds 
+Timing - Allocated device memory. 		Elasped 200674 microseconds 
+Timing - Skipped CPU Reference for large N. 		Elasped 0 microseconds 
+Timing - Copying data to the GPU.. 		Elasped 270 microseconds 
+Timing - Finished 1D convolution(basic). 		Elasped 147 microseconds 
+Timing - Finished 1D convolution(tiled). 		Elasped 29 microseconds 
+Timing - Copying output P to the CPU. 		Elasped 77 microseconds 
+Validation skipped for large N
+
+```
+
+### 5) Profiling Results (N = 16384)
+The analysis focuses on the optimized `convolution_1D_tiled` kernel.
+
+* **Shared Memory Usage:** `1.04 Kbyte/block`
+* **Achieved Occupancy:** `39.20 %`
+
+**Analysis:**
+1.  The usage of 1.04 KB perfectly matches the calculation. For a tile width of 256 and a mask size of 5 (radius 2), the kernel requires:
+    $$(256 \text{ internal} + 4 \text{ halo}) \times 4 \text{ bytes/float} = 260 \times 4 = 1040 \text{ bytes} \approx 1.02 \text{ KB}$$
+    This confirms that the tiled implementation correctly allocates only the necessary memory for the tile and its halo.
+
+2.  **Occupancy:** The achieved occupancy is 39.20%. Although the kernel has low register and shared memory pressure (which theoretically allows for 100% occupancy), the achieved value is limited by the workload size.
+    With $N=16,384$ and a block size of 256, the grid consists of only $\lceil 16384/256 \rceil = 64$ blocks. A Tesla T4 GPU has 40 Streaming Multiprocessors (SMs). Distributing 64 blocks across 40 SMs results in only 1.6 blocks per SM on average. Since the hardware can support many more active blocks per SM, the GPU is not fully saturated, leading to the observed occupancy of ~39%. To achieve higher occupancy, a significantly larger $N$ would be required to fill all SMs.
 
 ## Question 2 - NVIDIA Libraries and Managed Memory
 
